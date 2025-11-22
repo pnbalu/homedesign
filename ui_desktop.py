@@ -17,15 +17,22 @@ import matplotlib.pyplot as plt
 
 class FloorPlan3DApp:
     def __init__(self, root):
-        self.root = root
-        self.root.title("Floor Plan to 3D House Generator")
-        self.root.geometry("1200x800")
-        self.root.configure(bg='#f0f0f0')
-        
-        self.floor_plan_path = None
-        self.converter = None
-        
-        self.setup_ui()
+        try:
+            self.root = root
+            self.root.title("Floor Plan to 3D House Generator")
+            self.root.geometry("1200x800")
+            self.root.configure(bg='#f0f0f0')
+            
+            self.floor_plan_path = None
+            self.converter = None
+            
+            self.setup_ui()
+        except Exception as e:
+            import traceback
+            error_msg = f"Error initializing application:\n{str(e)}\n\n{traceback.format_exc()}"
+            print(error_msg)
+            messagebox.showerror("Initialization Error", error_msg)
+            raise
         
     def setup_ui(self):
         # Header
@@ -83,6 +90,20 @@ class FloorPlan3DApp:
             pady=5
         )
         btn_sample.pack(fill=tk.X, padx=5, pady=5)
+        
+        btn_editor = tk.Button(
+            file_frame,
+            text="🏗️ Open Floor Plan Editor",
+            command=self.open_editor,
+            bg='#FF9800',
+            fg='white',
+            font=('Arial', 10, 'bold'),
+            relief=tk.RAISED,
+            cursor='hand2',
+            padx=10,
+            pady=5
+        )
+        btn_editor.pack(fill=tk.X, padx=5, pady=5)
         
         self.file_label = tk.Label(
             file_frame,
@@ -273,6 +294,17 @@ class FloorPlan3DApp:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to create sample: {str(e)}")
                 
+    def open_editor(self):
+        """Open the floor plan editor"""
+        try:
+            import subprocess
+            import sys
+            # Open editor in a new process
+            subprocess.Popen([sys.executable, "floor_plan_editor.py"])
+            self.log("Floor plan editor opened in a new window")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open editor:\n{str(e)}")
+                
     def load_preview(self, file_path):
         """Load and display floor plan preview"""
         try:
@@ -301,7 +333,7 @@ class FloorPlan3DApp:
         thread.start()
         
     def _generate_3d_thread(self):
-        """Thread function for 3D generation"""
+        """Thread function for 3D generation - does computation only"""
         try:
             wall_height = self.wall_height_var.get()
             wall_thickness = self.wall_thickness_var.get()
@@ -314,7 +346,7 @@ class FloorPlan3DApp:
                 wall_thickness=wall_thickness
             )
             
-            # Load and process
+            # Load and process (heavy computation in background thread)
             self.log("Loading floor plan...")
             image = self.converter.load_floor_plan(self.floor_plan_path)
             
@@ -325,14 +357,44 @@ class FloorPlan3DApp:
             self.log("Normalizing coordinates...")
             normalized_walls, scale = self.converter.normalize_coordinates(walls, image.shape)
             
-            self.log("Creating 3D visualization...")
+            # Store data for main thread to create visualization
+            self.log("Preparing 3D data...")
+            model_data = {
+                'normalized_walls': normalized_walls,
+                'scale': scale,
+                'image_shape': image.shape,
+                'wall_height': wall_height,
+                'wall_thickness': wall_thickness
+            }
             
-            # Create matplotlib figure
+            # Create visualization in main thread (matplotlib must be in main thread)
+            self.root.after(0, self._create_3d_visualization, model_data)
+            
+            self.log("✅ 3D model generation complete!")
+            
+        except Exception as e:
+            self.log(f"❌ Error: {str(e)}")
+            import traceback
+            error_msg = f"Failed to generate 3D model:\n{str(e)}\n\n{traceback.format_exc()}"
+            self.root.after(0, lambda: messagebox.showerror("Error", error_msg))
+        finally:
+            self.root.after(0, lambda: self.btn_generate.config(state=tk.NORMAL))
+    
+    def _create_3d_visualization(self, model_data):
+        """Create matplotlib visualization in main thread"""
+        try:
+            normalized_walls = model_data['normalized_walls']
+            scale = model_data['scale']
+            image_shape = model_data['image_shape']
+            wall_height = model_data['wall_height']
+            wall_thickness = model_data['wall_thickness']
+            
+            # Create matplotlib figure (MUST be in main thread)
             fig = plt.figure(figsize=(10, 8))
             ax = fig.add_subplot(111, projection='3d')
             
             # Create floor
-            floor = self.converter.create_3d_floor(image.shape, scale)
+            floor = self.converter.create_3d_floor(image_shape, scale)
             from mpl_toolkits.mplot3d.art3d import Poly3DCollection
             floor_face = Poly3DCollection([floor], alpha=0.3, facecolor='gray', edgecolor='black')
             ax.add_collection3d(floor_face)
@@ -363,15 +425,13 @@ class FloorPlan3DApp:
             ax.set_zlim(mid_z - max_range/2, mid_z + max_range/2)
             
             # Display in UI
-            self.root.after(0, self._display_3d_model, fig)
-            
-            self.log("✅ 3D model generation complete!")
+            self._display_3d_model(fig)
             
         except Exception as e:
-            self.log(f"❌ Error: {str(e)}")
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to generate 3D model:\n{str(e)}"))
-        finally:
-            self.root.after(0, lambda: self.btn_generate.config(state=tk.NORMAL))
+            import traceback
+            error_msg = f"Failed to create visualization:\n{str(e)}\n\n{traceback.format_exc()}"
+            messagebox.showerror("Visualization Error", error_msg)
+            self.log(f"❌ Visualization error: {str(e)}")
             
     def _display_3d_model(self, fig):
         """Display 3D model in the UI"""
@@ -390,9 +450,21 @@ class FloorPlan3DApp:
 
 
 def main():
-    root = tk.Tk()
-    app = FloorPlan3DApp(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = FloorPlan3DApp(root)
+        root.mainloop()
+    except Exception as e:
+        import traceback
+        error_msg = f"Error starting application:\n{str(e)}\n\n{traceback.format_exc()}"
+        print(error_msg)
+        # Try to show error in a message box if possible
+        try:
+            root = tk.Tk()
+            root.withdraw()  # Hide main window
+            messagebox.showerror("Application Error", error_msg)
+        except:
+            pass
 
 
 if __name__ == '__main__':

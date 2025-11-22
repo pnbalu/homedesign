@@ -4,10 +4,12 @@ A Python project that converts 2D floor plan images into 3D house models.
 
 ## Features
 
+- **Interactive Floor Plan Editor**: Create floor plans by dragging and dropping walls, rooms, doors, and windows
 - **Automatic Wall Detection**: Uses computer vision techniques to detect walls from floor plan images
 - **3D Model Generation**: Creates a 3D visualization of the house with walls and floor
 - **Customizable Parameters**: Adjustable wall height and thickness
 - **Multiple Output Formats**: Can display interactively or save to file
+- **Web and Desktop UIs**: Choose between browser-based or native desktop interface
 
 ## Installation
 
@@ -19,6 +21,32 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+
+### 🏗️ Floor Plan Editor (New!)
+
+Create your own floor plans with the interactive drag-and-drop editor:
+
+```bash
+python floor_plan_editor.py
+```
+
+Or on Windows:
+```bash
+run_editor.bat
+```
+
+**Features:**
+- Draw walls by clicking and dragging
+- Create rectangular rooms
+- Place doors and windows
+- Save your floor plan as an image
+- Generate 3D model directly from the editor
+
+**How to use:**
+1. Select a tool from the left panel (Wall, Room, Door, Window)
+2. Click and drag on the canvas to draw
+3. Use "Generate 3D" button to create a 3D model
+4. Save your floor plan for later use
 
 ### 🖥️ Web UI (Recommended)
 
